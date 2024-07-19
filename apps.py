@@ -1,4 +1,4 @@
-from moduls import *
+
 
 def go_run(cnt, pnu):
     print(pnu)
