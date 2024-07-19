@@ -64,20 +64,6 @@ def go_run(cnt, pnu):
             ownerAdres = shrYmb['ownerAdres']  # 소유자주소
             ownshipQotaCn = shrYmb['ownshipQotaCn']  # 소유지분
 
-            #             print(f"pnu : {pnu}")
-            #             print(f"x좌표 : {parcelX}")
-            #             print(f"y좌표 : {parcelY}")
-            #             print(f"seq : {seq}")
-            #             print(f"변동사유 : {ownshipChgcsNm}")
-            #             print(f"변동일자 : {ownshipChangeDe}")
-            #             print(f"소유구분 : {posesnTyNm}")
-            #             print(f"소유자 주민/법인번호 : {ownerRegnoEncpt}")
-            #             print(f"소유자 이름 : {ownerNmEncpt}")
-            #             print(f"??? : {cocnrSn}")
-            #             print(f"소유자 주소 : {ownerAdres}")
-            #             print(f"소유지분 : {ownshipQotaCn}")
-            #             print("="*70+'\n')
-
             result_shrYmb = pd.DataFrame({
                 'PNU': [pnu],
                 'SEQ': [seq],
