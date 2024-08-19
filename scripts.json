@@ -1,6 +1,7 @@
 {
     "scripts": [
         "https://raw.githubusercontent.com/jang-sin/kgeo/main/apps.py",
-        "https://raw.githubusercontent.com/jang-sin/kgeo/main/moduls.py"
+        "https://raw.githubusercontent.com/jang-sin/kgeo/main/moduls.py",
+        "https://raw.githubusercontent.com/jang-sin/kgeo/main/crwaler_method.py"
     ]
 }
