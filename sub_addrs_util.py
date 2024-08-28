@@ -8,11 +8,13 @@ def extract_address(address):
         return match.group(0)
     return None
 
+
 def db_insert(pnu, total_juso, oracle_cursor, oracle_connection):
     insert_query = """INSERT INTO kgeo_sub_addr(PNU,ADDR) VALUES (:1, :2)"""
     data_list = [pnu, total_juso]
     oracle_cursor.execute(insert_query, data_list)
     oracle_connection.commit()
+
 
 def addr_split(total_juso, oracle_cursor, oracle_connection):
     addr_splitting = f"""
@@ -24,7 +26,6 @@ def addr_split(total_juso, oracle_cursor, oracle_connection):
                        """
     oracle_cursor.execute(addr_splitting)  # 분할주소 입력
     oracle_connection.commit()
-
 
 
 def get_sub_pnu(total_juso, oracle_cursor, oracle_connection):
@@ -40,6 +41,7 @@ def get_sub_pnu(total_juso, oracle_cursor, oracle_connection):
 
 def get_sub_addr(cnt, pnu):
     try:
+        print("Get_sub_addrs")
         # 각 스레드에서 개별적으로 Oracle 연결 설정
         oracle_connection = cx_Oracle.connect('jang', 'jang', 'www.ssucompanion.com:1521/SSUDB')
         oracle_cursor = oracle_connection.cursor()
