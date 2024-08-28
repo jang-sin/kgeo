@@ -39,16 +39,12 @@ def get_sub_pnu(total_juso, oracle_cursor, oracle_connection):
     oracle_connection.commit()
 
 
-def get_sub_addr(cnt, pnu):
+def get_sub_addr(jsondata, pnu):
     try:
-        print("Get_sub_addrs")
+
         # 각 스레드에서 개별적으로 Oracle 연결 설정
         oracle_connection = cx_Oracle.connect('jang', 'jang', 'www.ssucompanion.com:1521/SSUDB')
         oracle_cursor = oracle_connection.cursor()
-
-        url = f'https://kgeop.go.kr/geopass/api/selectOneParcelInfo.do?pnu={pnu}'
-        result = requests.get(url)
-        jsondata = result.json()
 
         if ('addrResultFromPnuMap' in jsondata and
                 'jusoResult' in jsondata['addrResultFromPnuMap'] and
@@ -60,6 +56,7 @@ def get_sub_addr(cnt, pnu):
             if relJibun:
                 relJibun_list = relJibun.split(",")
                 if relJibun_list[0] != "":
+                    print("있다")
                     juso_address = extract_address(relJibun_list[0])
                     for sample_bunji in relJibun_list:
                         total_juso = f"{juso_address} {sample_bunji.replace(juso_address, '').strip()}"

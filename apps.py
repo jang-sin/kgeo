@@ -39,7 +39,7 @@ def go_run(cnt, pnu):
     crwaler_method.kgeo_moveHistList(pnu)
 
     ### 부속지번
-    sub_addrs_util.get_sub_addr(cnt, pnu)
+    sub_addrs_util.get_sub_addr(jsondata, pnu)
 
 
 
