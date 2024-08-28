@@ -41,11 +41,6 @@ def get_sub_pnu(total_juso, oracle_cursor, oracle_connection):
 
 def get_sub_addr(jsondata, pnu):
     try:
-
-        # 각 스레드에서 개별적으로 Oracle 연결 설정
-        oracle_connection = cx_Oracle.connect('jang', 'jang', 'www.ssucompanion.com:1521/SSUDB')
-        oracle_cursor = oracle_connection.cursor()
-
         if ('addrResultFromPnuMap' in jsondata and
                 'jusoResult' in jsondata['addrResultFromPnuMap'] and
                 'jusoList' in jsondata['addrResultFromPnuMap']['jusoResult'] and
@@ -56,20 +51,21 @@ def get_sub_addr(jsondata, pnu):
             if relJibun:
                 relJibun_list = relJibun.split(",")
                 if relJibun_list[0] != "":
-                    print("있다")
                     juso_address = extract_address(relJibun_list[0])
                     for sample_bunji in relJibun_list:
                         total_juso = f"{juso_address} {sample_bunji.replace(juso_address, '').strip()}"
-                        # DB에 pnu, 주소 입력
-                        db_insert(pnu, total_juso, oracle_cursor, oracle_connection)
+                        # pnu, 주소
+                        result_sub = pd.DataFrame({
+                            'PNU': [pnu],
+                            'ADDR': [total_juso],
 
-                        # 주소 분할
-                        addr_split(total_juso, oracle_cursor, oracle_connection)
+                        })
 
-                        # sub_pnu 생성
-                        get_sub_pnu(total_juso, oracle_cursor, oracle_connection)
-        oracle_cursor.close()
-        oracle_connection.close()
+                        # 파일이 존재하는지 확인
+                        file_exists = os.path.isfile('kgeo_sub_addr.csv')
+                        # 파일이 존재하지 않으면 헤더 포함하여 저장, 존재하면 헤더 없이 추가
+                        result_sub.to_csv('kgeo_sub_addr.csv', mode='a', header=not file_exists, index=False)
+
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
     except KeyError as e:
