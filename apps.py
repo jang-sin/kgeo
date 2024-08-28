@@ -1,5 +1,7 @@
 from moduls import *
 import crwaler_method
+import sub_addrs_util
+
 
 def go_run(cnt, pnu):
     print(pnu)
@@ -35,6 +37,10 @@ def go_run(cnt, pnu):
 
     ### 토지이동 연혁
     crwaler_method.kgeo_moveHistList(pnu)
+
+    ### 부속지번
+    sub_addrs_util.get_sub_addr(cnt, pnu)
+
 
 
 
