@@ -73,7 +73,7 @@ def kgeo_shrYmbList(jsondata, pnu, parcelX, parcelY):
 
 ### 공시지가
 def kgeo_jigaRst(jsondata, pnu):
-    for j in jsondata['jigaRst']:
+    for j in jsondata['jigaRst'][:4]:
         stdrDe = j['stdrDe']  # 기준년월
         pblntfDe = j['pblntfDe']  # 공시일자
         jiga = j['indvdlzPblntfPclnd']  # 공시자가(원)
