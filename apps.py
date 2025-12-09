@@ -10,6 +10,7 @@ def go_run(cnt, pnu):
     - pnu: 토지 고유번호.
     """
     try:
+        print("dddd")
         print(pnu)
 
         if cnt == 1:
