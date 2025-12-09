@@ -10,7 +10,7 @@ def go_run(cnt, pnu):
     - pnu: 토지 고유번호.
     """
     try:
-        print("dddd")
+        print("aaaa")
         print(pnu)
 
         if cnt == 1:
@@ -53,12 +53,12 @@ def go_run(cnt, pnu):
         file_path = "failed_pnu.csv"
         file_exists = os.path.exists(file_path)
 
-        df = pd.DataFrame(
+        failed_df = pd.DataFrame(
             [[pnu, datetime.now().strftime("%Y-%m-%d %H:%M:%S")]],
             columns=["pnu", "timestamp"]
         )
 
-        df.to_csv(
+        failed_df.to_csv(
             file_path,
             mode="a",
             index=False,
@@ -71,12 +71,9 @@ def go_run(cnt, pnu):
 
 if __name__ == "__main__":
     df = pd.read_csv('input.csv')
-    pnus = [
-        '111111','222222','343333'
-    ]
+
     with ThreadPoolExecutor(max_workers=5) as executor:  # 변경 가능한 스레드 수
-        # for cnt, pnu in enumerate(df['PNU']):
-        for cnt, pnu in enumerate(pnus):
+        for cnt, pnu in enumerate(df['PNU']):
             executor.submit(go_run, cnt+1, pnu)
 
     input(f"{cnt+1}건 수집 완료")
