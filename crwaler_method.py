@@ -3,6 +3,13 @@ from moduls import *
 
 ### 소유자 정보
 def kgeo_landOwnerShipHistList(jsondata, cnt, pnu, parcelX, parcelY):
+    """
+    소유자 정보 데이터를 파싱하고, CSV로 저장합니다.
+    - jsondata: API 응답 JSON 데이터.
+    - cnt: 현재 작업 순번.
+    - pnu, parcelX, parcelY: 추가 정보.
+    """
+    ...
     landOwnerShipHistList = jsondata['landOwnerShipHistList']
     for i, landOwnerShipHist in enumerate(landOwnerShipHistList):
         seq = len(landOwnerShipHistList) - i
