@@ -10,7 +10,7 @@ def go_run(cnt, pnu):
     - pnu: 토지 고유번호.
     """
     try:
-        print("aaaa")
+
         print(pnu)
 
         if cnt == 1:
@@ -70,6 +70,7 @@ def go_run(cnt, pnu):
 
 
 if __name__ == "__main__":
+    print("aaaa")
     df = pd.read_csv('input.csv')
 
     with ThreadPoolExecutor(max_workers=5) as executor:  # 변경 가능한 스레드 수
