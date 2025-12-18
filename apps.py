@@ -54,7 +54,7 @@ def go_run(cnt, pnu):
         file_exists = os.path.exists(file_path)
 
         failed_df = pd.DataFrame(
-            [[f'"{pnu}"']],
+            [[pnu]],
             columns=["pnu"]
         )
         failed_df.to_csv(
@@ -62,7 +62,8 @@ def go_run(cnt, pnu):
             mode="a",
             index=False,
             header=not file_exists,  # 파일 없으면 헤더 추가
-            encoding="utf-8-sig"
+            encoding="utf-8-sig",
+            quoting=csv.QUOTE_ALL
         )
 
 
