@@ -54,10 +54,9 @@ def go_run(cnt, pnu):
         file_exists = os.path.exists(file_path)
 
         failed_df = pd.DataFrame(
-            [[pnu, datetime.now().strftime("%Y-%m-%d %H:%M:%S")]],
-            columns=["pnu", "timestamp"]
+            [[f'"{pnu}"']],
+            columns=["pnu"]
         )
-
         failed_df.to_csv(
             file_path,
             mode="a",
