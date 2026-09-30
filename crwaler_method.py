@@ -9,276 +9,170 @@ def kgeo_landOwnerShipHistList(jsondata, cnt, pnu, parcelX, parcelY):
     - cnt: 현재 작업 순번.
     - pnu, parcelX, parcelY: 추가 정보.
     """
-    ...
-    landOwnerShipHistList = jsondata['landOwnerShipHistList']
+    landOwnerShipHistList = jsondata.get('landOwnerShipHistList') or []
     for i, landOwnerShipHist in enumerate(landOwnerShipHistList):
         seq = len(landOwnerShipHistList) - i
-        ownshipChangeHistSn = landOwnerShipHist['ownshipChangeHistSn']  # ??
-        ownshipChgcsNm = landOwnerShipHist['ownshipChgcsNm']  # 변동사유
-        ownshipChangeDe = landOwnerShipHist['ownshipChangeDe']  # 변동일자
-        posesnTyNm = landOwnerShipHist['posesnTyNm']  # 소유구분
-        ownerRegnoEncpt = landOwnerShipHist['ownerRegnoEncpt']  # 소유자 주민/법인번호
-        ownerNmEncpt = landOwnerShipHist['ownerNmEncpt']  # 소유자 이름
-        ownerAdres = landOwnerShipHist['ownerAdres']  # 소유자 주소
-
-        result_hist = pd.DataFrame({
-            'cnt': [cnt],
-            'PNU': [pnu],
-            'SEQ': [seq],
-            'OWNSHIPCHANGEHISTSN': [ownshipChangeHistSn],
-            'OWNSHIPCHGCSNM': [ownshipChgcsNm],
-            'OWNSHIPCHANGEDE': [ownshipChangeDe],
-            'POSESNTYNM': [posesnTyNm],
-            'OWNERREGNOENCPT': [ownerRegnoEncpt],
-            'OWNERNMENCPT': [ownerNmEncpt],
-            'OWNERADRES': [ownerAdres],
-            'PARCELX': [parcelX],
-            'PARCELY': [parcelY],
-
+        CSV.write('kgeo_land_owner_hist.csv', {
+            'cnt': cnt,
+            'PNU': pnu,
+            'SEQ': seq,
+            'OWNSHIPCHANGEHISTSN': landOwnerShipHist.get('ownshipChangeHistSn'),
+            'OWNSHIPCHGCSNM': landOwnerShipHist.get('ownshipChgcsNm'),     # 변동사유
+            'OWNSHIPCHANGEDE': landOwnerShipHist.get('ownshipChangeDe'),   # 변동일자
+            'POSESNTYNM': landOwnerShipHist.get('posesnTyNm'),             # 소유구분
+            'OWNERREGNOENCPT': landOwnerShipHist.get('ownerRegnoEncpt'),   # 소유자 주민/법인번호
+            'OWNERNMENCPT': landOwnerShipHist.get('ownerNmEncpt'),         # 소유자 이름
+            'OWNERADRES': landOwnerShipHist.get('ownerAdres'),             # 소유자 주소
+            'PARCELX': parcelX,
+            'PARCELY': parcelY,
         })
-
-        # 파일이 존재하는지 확인
-        file_exists = os.path.isfile('kgeo_land_owner_hist.csv')
-        # 파일이 존재하지 않으면 헤더 포함하여 저장, 존재하면 헤더 없이 추가
-        result_hist.to_csv('kgeo_land_owner_hist.csv', mode='a', header=not file_exists, index=False)
 
 
 ### 공유지 연명부
 def kgeo_shrYmbList(jsondata, pnu, parcelX, parcelY):
-    shrYmbList = jsondata['shrYmbList']
+    shrYmbList = jsondata.get('shrYmbList') or []
     for z, shrYmb in enumerate(shrYmbList):
         seq = len(shrYmbList) - z
-        ownshipChgcsNm = shrYmb['ownshipChgcsNm']  # 변동사유
-        ownshipChangeDe = shrYmb['ownshipChangeDe']  # 변동일자
-        posesnTyNm = shrYmb['posesnTyNm']  # 소유구분
-        ownerRegnoEncpt = shrYmb['ownerRegnoEncpt']  # 소유자 주민번호
-        ownerNmEncpt = shrYmb['ownerNmEncpt']  # 소유자 이름
-        cocnrSn = shrYmb['cocnrSn']  # ???
-        ownerAdres = shrYmb['ownerAdres']  # 소유자주소
-        ownshipQotaCn = shrYmb['ownshipQotaCn']  # 소유지분
-
-        result_shrYmb = pd.DataFrame({
-            'PNU': [pnu],
-            'SEQ': [seq],
-            'OWNSHIPCHGCSNM': [ownshipChgcsNm],
-            'OWNSHIPCHANGEDE': [ownshipChangeDe],
-            'POSESNTYNM': [posesnTyNm],
-            'OWNERREGNOENCPT': [ownerRegnoEncpt],
-            'OWNERNMENCPT': [ownerNmEncpt],
-            "COCNRSN": [cocnrSn],
-            'OWNERADRES': [ownerAdres],
-            'OWNSHIPQOTACN': [ownshipQotaCn],
-            'PARCELX': [parcelX],
-            'PARCELY': [parcelY],
+        CSV.write('kgeo_shrymblist.csv', {
+            'PNU': pnu,
+            'SEQ': seq,
+            'OWNSHIPCHGCSNM': shrYmb.get('ownshipChgcsNm'),     # 변동사유
+            'OWNSHIPCHANGEDE': shrYmb.get('ownshipChangeDe'),   # 변동일자
+            'POSESNTYNM': shrYmb.get('posesnTyNm'),             # 소유구분
+            'OWNERREGNOENCPT': shrYmb.get('ownerRegnoEncpt'),   # 소유자 주민번호
+            'OWNERNMENCPT': shrYmb.get('ownerNmEncpt'),         # 소유자 이름
+            'COCNRSN': shrYmb.get('cocnrSn'),
+            'OWNERADRES': shrYmb.get('ownerAdres'),             # 소유자주소
+            'OWNSHIPQOTACN': shrYmb.get('ownshipQotaCn'),       # 소유지분
+            'PARCELX': parcelX,
+            'PARCELY': parcelY,
         })
-
-        # 파일이 존재하는지 확인
-        file_exists = os.path.isfile('kgeo_shrymblist.csv')
-        # 파일이 존재하지 않으면 헤더 포함하여 저장, 존재하면 헤더 없이 추가
-        result_shrYmb.to_csv('kgeo_shrymblist.csv', mode='a', header=not file_exists, index=False)
 
 
 ### 공시지가
 def kgeo_jigaRst(jsondata, pnu):
-    for j in jsondata['jigaRst'][:4]:
-        stdrDe = j['stdrDe']  # 기준년월
-        pblntfDe = j['pblntfDe']  # 공시일자
-        jiga = j['indvdlzPblntfPclnd']  # 공시자가(원)
-
-        result_shrYmb = pd.DataFrame({
-            'PNU': [pnu],
-            'stdrDe': [stdrDe],
-            'pblntfDe': [pblntfDe],
-            'jiga': [jiga],
+    for j in (jsondata.get('jigaRst') or [])[:4]:
+        CSV.write('kgeo_jigaRst.csv', {
+            'PNU': pnu,
+            'stdrDe': j.get('stdrDe'),                 # 기준년월
+            'pblntfDe': j.get('pblntfDe'),             # 공시일자
+            'jiga': j.get('indvdlzPblntfPclnd'),       # 공시지가(원)
         })
-
-        # 파일이 존재하는지 확인
-        file_exists = os.path.isfile('kgeo_jigaRst.csv')
-        # 파일이 존재하지 않으면 헤더 포함하여 저장, 존재하면 헤더 없이 추가
-        result_shrYmb.to_csv('kgeo_jigaRst.csv', mode='a', header=not file_exists, index=False)
 
 
 ### landLedgRst (뭔지 모르겠음, kgeo 화면에 없는 데이터)
 def kgeo_landLedgRst(jsondata, pnu):
-    for land_rst in jsondata['landLedgRst']:
-        admSectNm = land_rst['admSectNm']
-        lndcgrNm = land_rst['lndcgrNm']
-        lndcgrCode = land_rst['lndcgrCode']
-        ladMvmnDe = land_rst['ladMvmnDe']
-        ladMvmnResnNm = land_rst['ladMvmnResnNm']
-        ownshipChgcsNm = land_rst['ownshipChgcsNm']
-        ownshipChangeDe = land_rst['ownshipChangeDe']
-        posesnTyNm = land_rst['posesnTyNm']
-        posesnTyCode = land_rst['posesnTyCode']
-        ownerRegno = land_rst['ownerRegno']
-        ownerNmEncpt = land_rst['ownerNmEncpt']
-        lndpclAr = land_rst['lndpclAr']
-        pblonsipNmprCo = land_rst['pblonsipNmprCo']
-
-        result_landLedgRst = pd.DataFrame({
-            'PNU': [pnu],
-            'admSectNm': [admSectNm],
-            'lndcgrNm': [lndcgrNm],
-            'lndcgrCode': [lndcgrCode],
-            'ladMvmnDe': [ladMvmnDe],
-            'ladMvmnResnNm': [ladMvmnResnNm],
-            'ownshipChgcsNm': [ownshipChgcsNm],
-            "ownshipChangeDe": [ownshipChangeDe],
-            'posesnTyNm': [posesnTyNm],
-            'posesnTyCode': [posesnTyCode],
-            'ownerRegno': [ownerRegno],
-            'ownerNmEncpt': [ownerNmEncpt],
-            'lndpclAr': [lndpclAr],
-            'pblonsipNmprCo': [pblonsipNmprCo],
-
+    for land_rst in (jsondata.get('landLedgRst') or []):
+        CSV.write('kgeo_landLedgRst.csv', {
+            'PNU': pnu,
+            'admSectNm': land_rst.get('admSectNm'),
+            'lndcgrNm': land_rst.get('lndcgrNm'),
+            'lndcgrCode': land_rst.get('lndcgrCode'),
+            'ladMvmnDe': land_rst.get('ladMvmnDe'),
+            'ladMvmnResnNm': land_rst.get('ladMvmnResnNm'),
+            'ownshipChgcsNm': land_rst.get('ownshipChgcsNm'),
+            'ownshipChangeDe': land_rst.get('ownshipChangeDe'),
+            'posesnTyNm': land_rst.get('posesnTyNm'),
+            'posesnTyCode': land_rst.get('posesnTyCode'),
+            'ownerRegno': land_rst.get('ownerRegno'),
+            'ownerNmEncpt': land_rst.get('ownerNmEncpt'),
+            'lndpclAr': land_rst.get('lndpclAr'),
+            'pblonsipNmprCo': land_rst.get('pblonsipNmprCo'),
         })
-
-        # 파일이 존재하는지 확인
-        file_exists = os.path.isfile('kgeo_landLedgRst.csv')
-        # 파일이 존재하지 않으면 헤더 포함하여 저장, 존재하면 헤더 없이 추가
-        result_landLedgRst.to_csv('kgeo_landLedgRst.csv', mode='a', header=not file_exists, index=False)
 
 
 ### 건축물 정보(기본현황, 층별현황)
 def kgeo_bldgInfoRstList(jsondata, pnu):
-    for build_info in jsondata['bldgInfoRstList']:
+    for build_info in (jsondata.get('bldgInfoRstList') or []):
         # 건축물 정보를 얻기위한 건물 목록 데이터 받아오기
-        buldKndNm = build_info['buldKndNm']
-        buldKndCode = build_info['buldKndCode']
-        buldNm = build_info['buldNm']
-        bulddongNm = build_info['bulddongNm']
-        buldIdno = build_info['buldIdno']
+        buldKndCode = build_info.get('buldKndCode')
+        buldIdno = build_info.get('buldIdno')
 
-        # 기본현황
-        building_url = f'https://kgeop.go.kr/geopass/api/estateOne-bldg-info.do?buldKndCode={buldKndCode}&pnu={pnu}&buldIdno={buldIdno}'
-        building_result = requests.get(building_url)
-        building_data = building_result.json()["resultVo"]
+        # 기본현황 - 공용 Session 사용(연결 재사용 + 타임아웃 + 재시도)
+        building_url = (
+            f'https://kgeop.go.kr/geopass/api/estateOne-bldg-info.do'
+            f'?buldKndCode={buldKndCode}&pnu={pnu}&buldIdno={buldIdno}'
+        )
+        try:
+            building_json = get_json(building_url)
+        except Exception as e:
+            # 동 하나를 못 받아도 그 PNU 의 다른 데이터는 살린다.
+            # 다만 buldKndCode/buldIdno 를 남겨 두면 나중에 그 동만 콕 집어
+            # estateOne-bldg-info.do 를 다시 호출해 복구할 수 있다.
+            print(f'[bldg] {pnu}/{buldIdno} 실패: {type(e).__name__}: {e}')
+            CSV.write_safe('failed_bldg.csv', {
+                'pnu': pnu,
+                'buldKndCode': buldKndCode,
+                'buldIdno': buldIdno,
+                'error': f'{type(e).__name__}: {e}',
+                'at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            })
+            continue
 
-        larea = building_data['larea']
-        barea = building_data['barea']
-        garea = building_data['garea']
-        fsiCalcGarea = building_data['fsiCalcGarea']
-        blr = building_data['blr']
-        fsi = building_data['fsi']
-        hehdCnt = building_data['hehdCnt']
-        hoCnt = building_data['hoCnt']
-        fmlyCnt = building_data['fmlyCnt']
-        parkCnt = building_data['parkCnt']
+        building_data = building_json.get('resultVo') or {}
 
-        mainUseNm = building_data['mainUseNm']
-        etcUse = building_data['etcUse']
-        struNm = building_data['struNm']
-        etcStru = building_data['etcStru']
-        roofNm = building_data['roofNm']
-        etcRoof = building_data['etcRoof']
-        mainBldgCnt = building_data['mainBldgCnt']
-        subBldgCnt = building_data['subBldgCnt']
-        subBldgArea = building_data['subBldgArea']
-        permYmd = building_data['permYmd']
+        CSV.write('kgeo_bldgInfoRstList.csv', {
+            'PNU': pnu,
+            'buldKndNm': build_info.get('buldKndNm'),
+            'buldNm': build_info.get('buldNm'),
+            'bulddongNm': build_info.get('bulddongNm'),
 
-        bgconsYmd = building_data['bgconsYmd']
-        useAprvYmd = building_data['useAprvYmd']
-        repJibun = building_data['repJibun']
-        relJibun = building_data['relJibun']
+            'larea': building_data.get('larea'),
+            'barea': building_data.get('barea'),
+            'garea': building_data.get('garea'),
+            'fsiCalcGarea': building_data.get('fsiCalcGarea'),
+            'blr': building_data.get('blr'),
 
-        result_bldgInfoRstList = pd.DataFrame({
-            'PNU': [pnu],
-            'buldKndNm': [buldKndNm],
-            'buldNm': [buldNm],
-            'bulddongNm': [bulddongNm],
+            'fsi': building_data.get('fsi'),
+            'hehdCnt': building_data.get('hehdCnt'),
+            'hoCnt': building_data.get('hoCnt'),
+            'fmlyCnt': building_data.get('fmlyCnt'),
+            'parkCnt': building_data.get('parkCnt'),
 
-            'larea': [larea],
-            'barea': [barea],
-            'garea': [garea],
-            'fsiCalcGarea': [fsiCalcGarea],
-            'blr': [blr],
+            'mainUseNm': building_data.get('mainUseNm'),
+            'etcUse': building_data.get('etcUse'),
+            'struNm': building_data.get('struNm'),
+            'etcStru': building_data.get('etcStru'),
+            'roofNm': building_data.get('roofNm'),
 
-            'fsi': [fsi],
-            "hehdCnt": [hehdCnt],
-            'hoCnt': [hoCnt],
-            'fmlyCnt': [fmlyCnt],
-            'parkCnt': [parkCnt],
+            'etcRoof': building_data.get('etcRoof'),
+            'mainBldgCnt': building_data.get('mainBldgCnt'),
+            'subBldgCnt': building_data.get('subBldgCnt'),
+            'subBldgArea': building_data.get('subBldgArea'),
+            'permYmd': building_data.get('permYmd'),
 
-            'mainUseNm': [mainUseNm],
-            'etcUse': [etcUse],
-            'struNm': [struNm],
-            'etcStru': [etcStru],
-            'roofNm': [roofNm],
+            'bgconsYmd': building_data.get('bgconsYmd'),
+            'useAprvYmd': building_data.get('useAprvYmd'),
+            'repJibun': building_data.get('repJibun'),
+            'relJibun': building_data.get('relJibun'),
+            'buldKndCode': buldKndCode,
 
-            'etcRoof': [etcRoof],
-            'mainBldgCnt': [mainBldgCnt],
-            'subBldgCnt': [subBldgCnt],
-            'subBldgArea': [subBldgArea],
-            'permYmd': [permYmd],
-
-            'bgconsYmd': [bgconsYmd],
-            'useAprvYmd': [useAprvYmd],
-            'repJibun': [repJibun],
-            'relJibun': [relJibun],
-            'buldKndCode': [buldKndCode],
-
-            'buldIdno': [buldIdno],
-
+            'buldIdno': buldIdno,
         })
 
-        # 파일이 존재하는지 확인
-        file_exists = os.path.isfile('kgeo_bldgInfoRstList.csv')
-        # 파일이 존재하지 않으면 헤더 포함하여 저장, 존재하면 헤더 없이 추가
-        result_bldgInfoRstList.to_csv('kgeo_bldgInfoRstList.csv', mode='a', header=not file_exists, index=False)
-
         # 층별현황
-        try:
-            floor_list = building_result.json()["flrList"]
-        except:
-            continue
-        for flr in floor_list:
-            flrGbnNm = flr['flrGbnNm']
-            flr_ = flr['flr']
-            etcStru = flr['etcStru']
-            etcUse = flr['etcUse']
-            btmArea = flr['btmArea']
-
-            result_flrList = pd.DataFrame({
-                'PNU': [pnu],
-
-                'flrGbnNm': [flrGbnNm],
-                'flr': [flr_],
-                'etcStru': [etcStru],
-                'etcUse': [etcUse],
-                'btmArea': [btmArea],
-
-                'buldKndCode': [buldKndCode],
-                'buldIdno': [buldIdno],
+        for flr in (building_json.get('flrList') or []):
+            CSV.write('kgeo_flrList.csv', {
+                'PNU': pnu,
+                'flrGbnNm': flr.get('flrGbnNm'),
+                'flr': flr.get('flr'),
+                'etcStru': flr.get('etcStru'),
+                'etcUse': flr.get('etcUse'),
+                'btmArea': flr.get('btmArea'),
+                'buldKndCode': buldKndCode,
+                'buldIdno': buldIdno,
             })
-
-            # 파일이 존재하는지 확인
-            file_exists = os.path.isfile('kgeo_flrList.csv')
-            # 파일이 존재하지 않으면 헤더 포함하여 저장, 존재하면 헤더 없이 추가
-            result_flrList.to_csv('kgeo_flrList.csv', mode='a', header=not file_exists, index=False)
 
 
 ### 토지이동 연혁
-def kgeo_moveHistList(pnu):
-    moveHist_url = f'https://kgeop.go.kr/geopass/api/selectOneParcelInfo.do?pnu={pnu}'
-    moveHist_result = requests.get(moveHist_url)
-    moveHist_jsondata = moveHist_result.json()
-
-    for hist in moveHist_jsondata['moveHistList']:
-        lndcgrNm = hist['lndcgrNm']
-        lndpclAr = hist['lndpclAr']
-        ladMvmnDe = hist['ladMvmnDe']
-        ladMvmnResnNm = hist['ladMvmnResnNm']
-
-        result_moveHistList = pd.DataFrame({
-            'PNU': [pnu],
-            'lndcgrNm': [lndcgrNm],
-            'lndpclAr': [lndpclAr],
-            'ladMvmnDe': [ladMvmnDe],
-            'ladMvmnResnNm': [ladMvmnResnNm],
-
+def kgeo_moveHistList(jsondata, pnu):
+    """selectOneParcelInfo.do 응답에 moveHistList 가 이미 들어 있다.
+    예전엔 같은 URL 을 한 번 더 호출해서 요청 수가 2배였다."""
+    for hist in (jsondata.get('moveHistList') or []):
+        CSV.write('kgeo_moveHistList.csv', {
+            'PNU': pnu,
+            'lndcgrNm': hist.get('lndcgrNm'),
+            'lndpclAr': hist.get('lndpclAr'),
+            'ladMvmnDe': hist.get('ladMvmnDe'),
+            'ladMvmnResnNm': hist.get('ladMvmnResnNm'),
         })
-
-        # 파일이 존재하는지 확인
-        file_exists = os.path.isfile('kgeo_moveHistList.csv')
-        # 파일이 존재하지 않으면 헤더 포함하여 저장, 존재하면 헤더 없이 추가
-        result_moveHistList.to_csv('kgeo_moveHistList.csv', mode='a', header=not file_exists, index=False)
