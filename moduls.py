@@ -483,13 +483,29 @@ class DbWriter:
 
     # -- 연결 ------------------------------------------------------------
     def connect(self):
-        import cx_Oracle
+        """python-oracledb(thin 모드)로 접속한다.
+
+        cx_Oracle 은 thick 전용이라 PC 마다 Oracle 클라이언트가 설치돼 있어야
+        하고, 없으면 DPI-1047 로 실행조차 못 한다. 실제로 팀 PC 들이 여기서
+        막혔다. oracledb 는 순수 파이썬으로 Oracle 프로토콜을 구현해 클라이언트
+        설치가 필요 없다(DB 12.1 이상). cx_Oracle 의 후속이며 cx_Oracle 은
+        개발이 중단됐다.
+
+        oracledb 가 없는 환경을 위해 cx_Oracle 로 물러나는 길은 남겨둔다.
+        """
         user, pw, dsn = (os.environ.get('DB_USER'), os.environ.get('DB_PASSWORD'),
                          os.environ.get('DB_DSN'))
         missing = [k for k, v in (('DB_USER', user), ('DB_PASSWORD', pw), ('DB_DSN', dsn)) if not v]
         if missing:
             raise RuntimeError(f'.env 에 {", ".join(missing)} 가 없습니다')
-        self.conn = cx_Oracle.connect(user, pw, dsn, encoding='UTF-8')
+        try:
+            import oracledb
+            self.conn = oracledb.connect(user=user, password=pw, dsn=dsn)
+        except ImportError:
+            import cx_Oracle
+            print('[db] oracledb 가 없어 cx_Oracle 로 접속합니다 '
+                  '(Oracle 클라이언트 설치 필요)', flush=True)
+            self.conn = cx_Oracle.connect(user, pw, dsn, encoding='UTF-8')
         return self.conn
 
     def table_of(self, csvname):
