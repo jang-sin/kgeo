@@ -18,6 +18,33 @@ from urllib3.util.retry import Retry
 # 때문에 이 제한에 정면으로 부딪힌다. 아래 공용 Session 을 반드시 사용할 것.
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# .env 로더
+#
+# main.py 가 GitHub raw 에서 코드를 받아 실행하므로 외부 라이브러리를 늘리기
+# 어렵다. python-dotenv 대신 직접 파싱한다.
+# 접속정보는 절대 저장소에 넣지 않는다 - 이 저장소는 공개다.
+# ---------------------------------------------------------------------------
+
+def load_env(path='.env'):
+    env = {}
+    if not os.path.isfile(path):
+        return env
+    for line in open(path, encoding='utf-8'):
+        line = line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        k, v = line.split('=', 1)
+        env[k.strip()] = v.strip().strip('"').strip("'")
+    for k, v in env.items():
+        if v:
+            os.environ.setdefault(k, v)
+    return env
+
+
+ENV = load_env()
+
+
 MAX_WORKERS = 5
 TIMEOUT = (5, 30)  # (연결, 응답 대기) 초 - 무한 대기 방지
 
@@ -298,6 +325,10 @@ class CsvWriter:
                     f'{path} 컬럼 불일치 - 파일={header} / 기록시도={cols}')
             w.writerow([row[c] for c in header])
 
+        # DB 적재 대상이면 함께 버퍼에 넣는다. CSV 는 백업 겸 검증용으로 계속 남긴다.
+        if DB is not None:
+            DB.add(path, row)
+
     def write_safe(self, path, row):
         """실패 기록용. 여기서 예외가 나도 수집 자체를 죽이지 않는다."""
         try:
@@ -357,23 +388,26 @@ def backup_outputs():
 
 
 # PNU 컬럼명이 파일마다 다르다. 이어받기 판정에 쓸 (파일, 컬럼) 목록.
+# 완료 판정에 쓰는 CSV 는 empty_pnu.csv 하나뿐이다.
+#
+# 데이터 CSV(kgeo_*.csv)는 일부러 뺐다. 적재 대상이 DB 로 바뀐 뒤로 CSV 는
+# 백업일 뿐이라 DB 와 어긋날 수 있다. 실제로 DB 만 비우고 CSV 를 남겨둔 채
+# 실행하면, CSV 에 있다는 이유로 808건이 완료 처리되어 DB 에 영영 들어가지
+# 않았다. 완료 판정의 기준은 적재처인 DB 여야 한다.
+#
+# empty_pnu.csv 는 남겨둔다. 서버에 데이터가 없는 PNU 는 어느 테이블에도
+# 들어가지 않아 DB 로는 판정할 수 없다. 이 기록이 사라져도 해당 PNU 를 다시
+# 조회해 또 비었음을 확인할 뿐이라 데이터가 틀어지지 않는다.
 _DONE_SOURCES = [
-    ('kgeo_land_owner_hist.csv', 'PNU'),
-    ('kgeo_jigaRst.csv', 'PNU'),
-    ('kgeo_landLedgRst.csv', 'PNU'),
-    ('kgeo_moveHistList.csv', 'PNU'),
-    ('kgeo_shrymblist.csv', 'PNU'),
-    ('kgeo_bldgInfoRstList.csv', 'PNU'),
-    ('kgeo_sub_addr.csv', 'PNU'),
     ('empty_pnu.csv', 'pnu'),
 ]
 
 
 def load_done_pnus():
-    """이미 처리된 PNU 집합을 기존 결과 파일에서 읽는다.
+    """데이터가 없는 것으로 확인된 PNU 집합. DB 로는 판정할 수 없는 부분이다.
 
-    차단으로 중단된 실행을 이어받기 위한 것. failed_pnu.csv 는 일부러 제외한다
-    - 차단 때문에 실패한 건이라 다시 시도해야 한다.
+    데이터가 있는 PNU 의 완료 판정은 DbWriter.done_pnus() 가 담당한다.
+    failed_pnu.csv 는 일부러 제외한다 - 다시 시도해야 하는 건이다.
     """
     done = set()
     for fname, col in _DONE_SOURCES:
@@ -386,3 +420,262 @@ def load_done_pnus():
             print(f'[resume] {fname} 읽기 실패(건너뜀): {type(e).__name__}: {e}')
     done.discard('')
     return done
+
+
+# ---------------------------------------------------------------------------
+# Oracle 적재
+#
+# 테이블명 = 고정 접두사 + 실행 시 받는 접미사. 예) KGEO_OWNER_HIST_1
+# 접미사는 테이블명의 일부라서 바인드 변수로 넘길 수 없다(SQL 문법상 불가).
+# 문자열로 붙일 수밖에 없으므로 숫자만 허용해 인젝션 여지를 없앤다.
+#
+# 대상 컬럼은 전부 VARCHAR2 라 콤마가 박힌 숫자("109,900")도 변환 없이 들어간다.
+# kgeo_sub_addr 과 실패 기록 4종은 테이블이 없거나 성격이 달라 CSV 로만 남긴다.
+# ---------------------------------------------------------------------------
+
+TABLE_MAP = {
+    'kgeo_land_owner_hist.csv': 'KGEO_OWNER_HIST_{s}',
+    'kgeo_shrymblist.csv':      'KGEO_SHRYMBLIST_{s}',
+    'kgeo_jigaRst.csv':         'KGEO_JIGARST_{s}',
+    'kgeo_landLedgRst.csv':     'KGEO_LANDLEDGRST_{s}',
+    'kgeo_bldgInfoRstList.csv': 'KGEO_BLDGINFO_{s}',
+    'kgeo_flrList.csv':         'KGEO_FIRLIST_{s}',
+    'kgeo_moveHistList.csv':    'KGEO_MOVEHIST_{s}',
+}
+
+# PNU 하나당 DB 로 가는 행이 평균 9행 정도다. 2000 으로 잡았더니 약 220 PNU 를
+# 처리해야 첫 커밋이 일어나, 중간에 멈추면 그때까지 작업이 통째로 날아갔다.
+# 행수와 시간 중 먼저 걸리는 쪽에서 커밋한다.
+DB_BATCH_ROWS = 300      # 약 30 PNU
+DB_FLUSH_SECONDS = 20    # 수집이 느려도 20초마다는 커밋한다
+
+# 중단 요청. ThreadPoolExecutor 에 이미 쌓인 작업을 즉시 비우기 위한 플래그.
+STOP = threading.Event()
+
+
+def _bind(v):
+    """파이썬 값 -> 바인드 값. 빈 값은 NULL 로 넣는다."""
+    if v is None:
+        return None
+    s = str(v)
+    return s if s != '' else None
+
+
+class DbWriter:
+    """행을 모아 executemany 로 적재한다.
+
+    - flush 는 PNU 처리가 끝난 시점에만 일어난다. 한 PNU 의 행들이 여러 테이블에
+      걸쳐 있는데 중간에 커밋되면, 중단 시 '완료로 보이지만 일부만 있는 PNU' 가
+      생긴다. 이어받기가 그 PNU 를 건너뛰므로 데이터가 조용히 비게 된다.
+    - 배치가 실패하면 한 행씩 다시 넣어 원인 행만 골라낸다. 한 행 때문에
+      2000행이 통째로 날아가지 않게 하려는 것.
+    """
+
+    def __init__(self, suffix):
+        self.suffix = suffix
+        self.conn = None
+        self._buf = {}        # table -> [row dict, ...]
+        self._pending = 0
+        self._last_flush = time.time()
+        self._lock = threading.Lock()
+        self.inserted = 0
+        self.rejected = 0
+
+    # -- 연결 ------------------------------------------------------------
+    def connect(self):
+        import cx_Oracle
+        user, pw, dsn = (os.environ.get('DB_USER'), os.environ.get('DB_PASSWORD'),
+                         os.environ.get('DB_DSN'))
+        missing = [k for k, v in (('DB_USER', user), ('DB_PASSWORD', pw), ('DB_DSN', dsn)) if not v]
+        if missing:
+            raise RuntimeError(f'.env 에 {", ".join(missing)} 가 없습니다')
+        self.conn = cx_Oracle.connect(user, pw, dsn, encoding='UTF-8')
+        return self.conn
+
+    def table_of(self, csvname):
+        pat = TABLE_MAP.get(csvname)
+        return pat.format(s=self.suffix) if pat else None
+
+    # -- 사전 검증 -------------------------------------------------------
+    def preflight(self, sample_columns):
+        """테이블 존재와 컬럼 일치를 시작 전에 확인한다.
+
+        20 분 돌린 뒤 'ORA-00942 테이블이 없습니다' 로 끝나는 일을 막는다.
+        sample_columns: {csv파일명: [CSV 헤더...]}
+        """
+        cur = self.conn.cursor()
+        problems = []
+        for csvname, cols in sample_columns.items():
+            tbl = self.table_of(csvname)
+            if not tbl:
+                continue
+            cur.execute("""SELECT column_name, data_length FROM user_tab_columns
+                            WHERE table_name = :t""", t=tbl)
+            found = {r[0]: r[1] for r in cur.fetchall()}
+            if not found:
+                problems.append(f'{tbl} : 테이블이 없습니다')
+                continue
+            miss = [c for c in cols if c.upper() not in found]
+            if miss:
+                problems.append(f'{tbl} : 컬럼 없음 {", ".join(miss)}')
+        cur.close()
+        return problems
+
+    # -- 기록 ------------------------------------------------------------
+    def add(self, csvname, row):
+        tbl = self.table_of(csvname)
+        if not tbl:
+            return
+        with self._lock:
+            self._buf.setdefault(tbl, []).append(row)
+            self._pending += 1
+
+    def pnu_done(self):
+        """PNU 하나가 끝난 시점. 여기서만 flush 한다."""
+        with self._lock:
+            over = (self._pending >= DB_BATCH_ROWS or
+                    (self._pending and time.time() - self._last_flush >= DB_FLUSH_SECONDS))
+        if over:
+            self.flush()
+            CSV.flush()     # CSV 도 같이 내려써서 DB 와 어긋나지 않게 한다
+
+    def flush(self):
+        with self._lock:
+            buf, self._buf, self._pending = self._buf, {}, 0
+            self._last_flush = time.time()
+        if not buf:
+            return
+        cur = self.conn.cursor()
+        try:
+            for tbl, rows in buf.items():
+                self._insert(cur, tbl, rows)
+            self.conn.commit()
+        finally:
+            cur.close()
+
+    def _insert(self, cur, tbl, rows):
+        cols = list(rows[0].keys())
+        names = ', '.join(c.upper() for c in cols)
+        binds = ', '.join(f':{i + 1}' for i in range(len(cols)))
+        sql = f'INSERT INTO {tbl} ({names}) VALUES ({binds})'
+        data = [[_bind(r.get(c)) for c in cols] for r in rows]
+        try:
+            cur.executemany(sql, data)
+            self.inserted += len(data)
+        except Exception as e:
+            # 배치 실패 -> 한 행씩 넣어 문제 행만 분리한다
+            print(f'[db] {tbl} 배치 실패, 행 단위 재시도: {type(e).__name__}', flush=True)
+            for r, d in zip(rows, data):
+                try:
+                    cur.execute(sql, d)
+                    self.inserted += 1
+                except Exception as e2:
+                    self.rejected += 1
+                    CSV.write_safe('failed_step.csv', {
+                        'pnu': str(r.get('PNU') or r.get('pnu') or ''),
+                        'step': f'db:{tbl}',
+                        'error': f'{type(e2).__name__}: {str(e2).strip().splitlines()[0]}',
+                        'at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    })
+
+    # -- 이어받기 --------------------------------------------------------
+    def done_pnus(self):
+        """테이블에 이미 들어 있는 PNU. CSV 가 없어도 이어받기가 동작하게 한다."""
+        done = set()
+        cur = self.conn.cursor()
+        for csvname in TABLE_MAP:
+            tbl = self.table_of(csvname)
+            try:
+                cur.execute(f'SELECT DISTINCT PNU FROM {tbl}')
+                done |= {str(r[0]).strip() for r in cur if r[0] is not None}
+            except Exception as e:
+                print(f'[resume] {tbl} 조회 실패(건너뜀): {type(e).__name__}')
+        cur.close()
+        done.discard('')
+        return done
+
+    def close(self):
+        try:
+            self.flush()
+        finally:
+            if self.conn:
+                try:
+                    self.conn.close()
+                except Exception:
+                    pass
+                self.conn = None
+
+
+DB = None          # apps.py 가 실행 시 생성한다
+
+
+def resolve_suffix(value):
+    """접미사 검증. 테이블명에 문자열로 붙으므로 숫자만 허용한다."""
+    s = (value or '').strip().strip('"').strip("'")
+    if not s:
+        raise ValueError('접미사가 비어 있습니다')
+    if not s.isdigit():
+        raise ValueError(f'숫자만 입력하세요: {s!r}')
+    return s
+
+
+def install_shutdown_guard():
+    """종료 신호를 받으면 버퍼를 내려쓴 뒤 끝낸다.
+
+    예전에는 finally 블록에만 의존했는데, Ctrl+C 나 창 닫기로 죽으면 실행되지
+    않아 CSV 와 DB 버퍼가 통째로 날아갔다. 실제로 131 PNU 작업분이 사라졌다.
+    """
+    import atexit, signal
+
+    def _drain(reason=''):
+        if reason:
+            print(f'\n[중단] {reason} - 지금까지 수집분을 저장하는 중입니다...', flush=True)
+        try:
+            if DB is not None:
+                DB.flush()
+        except Exception as e:
+            print(f'[중단] DB 저장 실패: {type(e).__name__}: {e}', flush=True)
+        try:
+            CSV.flush()
+        except Exception:
+            pass
+
+    atexit.register(_drain)
+
+    def _on_signal(signum, frame):
+        STOP.set()                      # 큐에 쌓인 작업을 즉시 비운다
+        _drain('종료 요청을 받았습니다')
+        print('[중단] 저장 완료. 다시 실행하면 이어서 진행합니다.', flush=True)
+
+    for sig in ('SIGINT', 'SIGTERM', 'SIGBREAK'):
+        s = getattr(signal, sig, None)
+        if s is not None:
+            try:
+                signal.signal(s, _on_signal)
+            except (ValueError, OSError):
+                pass
+
+
+def ask_suffix():
+    """대상 테이블 접미사를 실행 시 입력받는다.
+
+    TABLE_SUFFIX 환경변수(.env 포함)가 지정돼 있으면 묻지 않는다.
+    스케줄러나 백그라운드 실행처럼 입력을 받을 수 없는 경우를 위한 것이다.
+    """
+    env_val = os.environ.get('TABLE_SUFFIX', '')
+    if env_val.strip().strip('"').strip("'"):
+        s = resolve_suffix(env_val)
+        print(f'[db] 접미사 {s} - TABLE_SUFFIX 지정값을 사용합니다', flush=True)
+        return s
+
+    while True:
+        try:
+            raw = input('대상 테이블 접미사를 입력하세요 (숫자, 예: 1) > ')
+        except EOFError:
+            raise RuntimeError(
+                '접미사를 입력받을 수 없습니다. 백그라운드 실행이면 .env 의 '
+                'TABLE_SUFFIX 를 지정하세요')
+        try:
+            return resolve_suffix(raw)
+        except ValueError as e:
+            print(f'  {e}')

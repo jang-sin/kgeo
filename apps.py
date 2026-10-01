@@ -73,6 +73,9 @@ def _fail_step(pnu, step, e):
 
 def go_run(cnt, pnu, total):
     """단일 PNU 에 대해 kgeo API 호출 및 데이터 파싱을 수행합니다."""
+    if STOP.is_set():
+        return      # 중단 요청. 큐에 쌓인 작업을 즉시 비운다
+
     _progress(total)
 
     url = f'https://kgeop.go.kr/geopass/api/selectOneParcelInfo.do?pnu={pnu}'
@@ -128,6 +131,12 @@ def go_run(cnt, pnu, total):
         except Exception as e:
             _fail_step(pnu, name, e)
 
+    # PNU 하나가 끝난 시점. DB flush 는 여기서만 일어난다.
+    # 중간에 커밋하면 중단 시 '완료로 보이지만 일부 테이블만 채워진 PNU' 가 생기고,
+    # 이어받기가 그 PNU 를 건너뛰어 데이터가 조용히 빈다.
+    if DB is not None:
+        DB.pnu_done()
+
 
 if __name__ == "__main__":
     # RESUME=0 이면 기존 결과를 백업으로 밀어내고 처음부터 다시 받는다.
@@ -136,6 +145,54 @@ if __name__ == "__main__":
 
     if not resume:
         backup_outputs()
+
+    # --- DB 연결 및 사전 검증 ---------------------------------------------
+    # 20 분 돌린 뒤 '테이블이 없습니다' 로 끝나는 일을 막는다.
+    import moduls
+    conn_probe = DbWriter('0')
+    conn_probe.connect()
+    _conn = conn_probe.conn
+
+    _headers = {
+        'kgeo_land_owner_hist.csv': ['cnt', 'PNU', 'SEQ', 'OWNSHIPCHANGEHISTSN', 'OWNSHIPCHGCSNM',
+                                     'OWNSHIPCHANGEDE', 'POSESNTYNM', 'OWNERREGNOENCPT',
+                                     'OWNERNMENCPT', 'OWNERADRES', 'PARCELX', 'PARCELY'],
+        'kgeo_shrymblist.csv': ['PNU', 'SEQ', 'OWNSHIPCHGCSNM', 'OWNSHIPCHANGEDE', 'POSESNTYNM',
+                                'OWNERREGNOENCPT', 'OWNERNMENCPT', 'COCNRSN', 'OWNERADRES',
+                                'OWNSHIPQOTACN', 'PARCELX', 'PARCELY'],
+        'kgeo_jigaRst.csv': ['PNU', 'stdrDe', 'pblntfDe', 'jiga'],
+        'kgeo_landLedgRst.csv': ['PNU', 'admSectNm', 'lndcgrNm', 'lndcgrCode', 'ladMvmnDe',
+                                 'ladMvmnResnNm', 'ownshipChgcsNm', 'ownshipChangeDe', 'posesnTyNm',
+                                 'posesnTyCode', 'ownerRegno', 'ownerNmEncpt', 'lndpclAr',
+                                 'pblonsipNmprCo'],
+        'kgeo_bldgInfoRstList.csv': ['PNU', 'buldKndNm', 'buldNm', 'bulddongNm', 'larea', 'barea',
+                                     'garea', 'fsiCalcGarea', 'blr', 'fsi', 'hehdCnt', 'hoCnt',
+                                     'fmlyCnt', 'parkCnt', 'mainUseNm', 'etcUse', 'struNm',
+                                     'etcStru', 'roofNm', 'etcRoof', 'mainBldgCnt', 'subBldgCnt',
+                                     'subBldgArea', 'permYmd', 'bgconsYmd', 'useAprvYmd',
+                                     'repJibun', 'relJibun', 'buldKndCode', 'buldIdno'],
+        'kgeo_flrList.csv': ['PNU', 'flrGbnNm', 'flr', 'etcStru', 'etcUse', 'btmArea',
+                             'buldKndCode', 'buldIdno'],
+        'kgeo_moveHistList.csv': ['PNU', 'lndcgrNm', 'lndpclAr', 'ladMvmnDe', 'ladMvmnResnNm'],
+    }
+    # 접미사를 입력받고, 그 접미사의 테이블이 실제로 있는지 바로 확인한다.
+    # 오타면 프로그램을 다시 띄우지 않고 그 자리에서 다시 묻는다.
+    while True:
+        suffix = ask_suffix()
+        DB = DbWriter(suffix)
+        DB.conn = _conn
+        problems = DB.preflight(_headers)
+        if not problems:
+            break
+        print(f'[db] 접미사 {suffix} 로는 수집할 수 없습니다', flush=True)
+        for p in problems:
+            print(f'     {p}', flush=True)
+        if os.environ.get('TABLE_SUFFIX', '').strip().strip('"').strip("'"):
+            # .env 로 지정된 값이 틀린 경우. 다시 물어도 같은 값이 나오므로 중단한다.
+            _conn.close()
+            sys.exit(1)
+    moduls.DB = DB
+    print(f'[db] 접속 OK. 접미사 {suffix} - 대상 테이블 {len(TABLE_MAP)}개 확인됨', flush=True)
 
     warm_up()
 
@@ -146,7 +203,10 @@ if __name__ == "__main__":
     all_count = len(pnus)
 
     if resume:
-        done = load_done_pnus()
+        # 완료 판정의 기준은 적재처인 DB 다.
+        # empty_pnu.csv 는 '데이터가 없어 어느 테이블에도 안 들어간 PNU' 를
+        # 알려주는 보조 정보라서 함께 쓴다. 데이터 CSV 는 쓰지 않는다.
+        done = DB.done_pnus() | load_done_pnus()
 
         # 소유자 정보만 실패한 PNU 는 다른 파일에 행이 남아 있어 '완료' 로 잡힌다.
         # 그대로 두면 재시도되지 않으므로 완료 목록에서 빼준다.
@@ -169,9 +229,12 @@ if __name__ == "__main__":
     total = len(pnus)
     if total == 0:
         print('처리할 PNU 가 없습니다. 이미 전부 수집되었습니다.', flush=True)
+        DB.close()
         sys.exit(0)
     print(f'{all_count:,}건 중 {total:,}건 수집 시작 '
           f'(워커 {MAX_WORKERS}개, 연결 재사용)', flush=True)
+
+    install_shutdown_guard()
 
     started = datetime.now()
     _started_at = started
@@ -181,11 +244,16 @@ if __name__ == "__main__":
                        for i, pnu in enumerate(pnus)]
             for fut in as_completed(futures):
                 fut.result()   # 삼켜지던 예외를 드러낸다
+    except KeyboardInterrupt:
+        STOP.set()
+        print('\n[중단] Ctrl+C - 진행분을 저장하고 종료합니다', flush=True)
     finally:
         CSV.close()
+        DB.close()      # 남은 버퍼를 마저 넣고 커밋한다
 
     elapsed = (datetime.now() - started).total_seconds()
     print(f'{total}건 수집 완료 - {elapsed/60:.1f}분 ({total/elapsed:.1f} PNU/s)', flush=True)
+    print(f'[db] 적재 {DB.inserted:,}행 / 거부 {DB.rejected:,}행', flush=True)
     try:
         input('Press Enter to exit...')
     except EOFError:
